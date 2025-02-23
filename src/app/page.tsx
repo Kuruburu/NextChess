@@ -1,101 +1,172 @@
-import Image from "next/image";
+'use client'
+import Queen from "../../Classes/Queen";
+import { useEffect, useState } from "react";
+import Pawn from "../../Classes/Pawn";
+import Rook from "../../Classes/Rook";
+import ChessPiece from "../../Classes/ChessPiece";
+import Bishop from "../../Classes/Bishop";
+import King from "../../Classes/King";
+import Knight from "../../Classes/Knight";
+import { Color } from "../../interfaces";
+
+
+const createChessboardObject = () => {
+  const board: { [key: string]: ChessPiece | null } = {};
+  const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+  const firstRankWhite = [
+    new Rook("white", "a1"),
+    new Knight("white", "b1"),
+    new Bishop("white", "c1"),
+    new Queen("white", "d1"),
+    new King("white", "e1"),
+    new Bishop("white", "f1"),
+    new Knight("white", "g1"),
+    new Rook("white", "h1")
+  ];
+  const firstRankBlack = [
+    new Rook("black", "a8"),
+    new Knight("black", "b8"),
+    new Bishop("black", "c8"),
+    new Queen("black", "d8"),
+    new King("black", "e8"),
+    new Bishop("black", "f8"),
+    new Knight("black", "g8"),
+    new Rook("black", "h8")
+  ];
+
+  const secondRankWhite = files.map((file, index) => new Pawn("white", `${file}2`));
+  const secondRankBlack = files.map((file, index) => new Pawn("black", `${file}7`));
+
+  for (let rank = 1; rank <= 8; rank++) {
+    for (let file = 0; file < files.length; file++) {
+      const position = `${files[file]}${rank}`;
+
+      if (rank === 1) {
+        board[position] = firstRankWhite[file];
+      } else if (rank === 2) {
+        board[position] = secondRankWhite[file];
+      } else if (rank === 7) {
+        board[position] = secondRankBlack[file];
+      } else if (rank === 8) {
+        board[position] = firstRankBlack[file];
+      } else {
+        board[position] = null; 
+      }
+    }
+  }
+
+  return board;
+};
+
+
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const chessboard = createChessboardObject();
+  console.log(chessboard);
+  
+  const [currentChessBoard, setCurrentChessBoard] = useState(chessboard);
+  const [highlightedMoves, setHighlightedMoves] = useState<string[]>([]);
+  const [currentPiece, setCurrentPiece] = useState<ChessPiece | null>(); // Track the selected piece
+  const [currentTurn, setCurrentTurn] = useState<Color>("white");
+  const [whoWon, setWhoWon] = useState<Color | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+  const ranks = [8, 7, 6, 5, 4, 3, 2, 1];
+  const handleRestart = () => {
+    setHighlightedMoves([]);
+    setWhoWon(null);
+    setCurrentPiece(null);
+    setCurrentChessBoard(createChessboardObject())
+    setCurrentTurn("white");
+  }
+
+  const handleClickPiece = (piece: ChessPiece) => {
+    const availableMoves = piece.getAvailableMoves(currentChessBoard);
+    setCurrentPiece(piece);
+    setHighlightedMoves(availableMoves);
+  };
+
+  const handleMovePiece = (newPosition: string) => {
+    if (!currentPiece) return; // No piece selected
+    const newBoard = currentPiece.move(currentChessBoard, newPosition); // Try to move the piece
+    setHighlightedMoves([]); // Clear highlighted moves
+    setCurrentPiece(null); // Deselect piece
+    setCurrentChessBoard(newBoard);
+    setCurrentTurn(currentTurn === "white" ? "black" : "white");
+  };
+
+  const renderChessPiece = (piece: ChessPiece, currentTurn: Color) => {
+    return (
+      piece.color === "white" ? 
+        <button
+          disabled={currentTurn === "white" ? false : true}
+          onClick={() => handleClickPiece(piece)}
+          className={`font-semibold text-3xl text-red-600 ${currentTurn === "white" && "hover:cursor-pointer"}`}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          {piece.type}
+        </button>
+      : 
+        <button
+          disabled={currentTurn === "black" ? false : true}
+          onClick={() => handleClickPiece(piece)}
+          className={`font-semibold text-3xl text-black ${currentTurn === "black" && "hover:cursor-pointer"}`}
         >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          {piece.type}
+        </button>
+    )
+  }
+
+  const decideWhoWon = (currentChessBoard: {[key: string]: ChessPiece | null}) => {
+    const currentPieces = Object.values(currentChessBoard).filter((tile) => tile != null)
+    console.log(currentPieces);
+    const kings = currentPieces.filter((piece: ChessPiece) => piece.type === "K")
+    console.log("kings", kings);
+    
+    if (kings.length === 2){
+      return
+    }
+    if (kings[0].color === "white"){
+      setWhoWon("white");
+      return
+    } else {
+      setWhoWon("black")
+      return
+    };
+  }
+  useEffect(() => {
+    decideWhoWon(currentChessBoard);
+  }, [currentChessBoard])
+  
+
+  return (
+    <div aria-disabled={whoWon !== "white" || "black" ? false : true} className="flex flex-col gap-32 h-screen justify-center items-center">
+      {whoWon ? 
+      <div>
+        <h1>{whoWon} Won</h1>
+        <button onClick={handleRestart}>Restart</button>
+      </div> : <h1>Now moves {currentTurn}</h1>} 
+      <div key={1} className="grid grid-cols-8 border border-gray-400">
+        {ranks.map((rank) =>
+          files.map((file, fileIndex) => {
+            const position = `${file}${rank}`;
+            const isWhiteSquare = (rank + fileIndex) % 2 === 0;
+            const squareColor = isWhiteSquare ? "bg-yellow-600" : "bg-yellow-900";
+            const piece: ChessPiece | null = currentChessBoard[position];
+
+            // Check if the current square is in the highlighted moves
+            const isHighlighted = highlightedMoves.includes(position);
+
+            return (
+              <div key={position} className={`${squareColor} flex items-center justify-center h-16 w-16 opacity-90 relative`}>
+                {isHighlighted && (
+                  <div onClick={() => handleMovePiece(position)} className="absolute inset-0 bg-green-500 opacity-50 cursor-pointer"></div>
+                )}
+                {piece && renderChessPiece(piece, currentTurn)}
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
